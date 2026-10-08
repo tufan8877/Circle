@@ -42,7 +42,7 @@ export default function DrawCanvas({
 
     const ctx = canvas.getContext("2d");
     if (ctx) {
-      ctx.scale(dpr, dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       // Redraw existing points if any.
       redrawLine(ctx, pointsRef.current, lineColor, dpr);
     }
@@ -183,7 +183,8 @@ function drawSmoothLine(
 ) {
   if (points.length < 2) return;
   ctx.save();
-  ctx.scale(dpr, dpr);
+  // Set an absolute transform: the canvas context is already scaled for DPR.
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.beginPath();
   ctx.strokeStyle = color;
   ctx.lineWidth = 3;
