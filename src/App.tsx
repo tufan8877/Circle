@@ -90,7 +90,7 @@ export default function App() {
           <div className="flex items-center gap-2 mb-2">
             <Circle className="w-5 h-5 text-cyan-400" />
             <h1 className="text-xl sm:text-2xl font-bold tracking-[0.2em] text-white/90">
-              PERFECT CIRCLE
+              JustOneDraw
             </h1>
           </div>
           <p className="text-base sm:text-lg text-white/60 font-medium">
