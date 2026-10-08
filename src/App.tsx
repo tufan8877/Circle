@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Circle } from "lucide-react";
+import { Pencil } from "lucide-react";
 import DrawCanvas from "@/components/DrawCanvas";
 import ResultDisplay from "@/components/ResultDisplay";
 import StatsBar from "@/components/StatsBar";
@@ -88,7 +88,7 @@ export default function App() {
           }`}
         >
           <div className="flex items-center gap-2 mb-2">
-            <Circle className="w-5 h-5 text-cyan-400" />
+            <Pencil className="w-5 h-5 shrink-0 text-cyan-400" aria-hidden="true" />
             <h1 className="text-xl sm:text-2xl font-bold tracking-[0.2em] text-white/90">
               JustOneDraw
             </h1>
