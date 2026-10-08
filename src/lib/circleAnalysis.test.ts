@@ -272,3 +272,50 @@ describe("getRatingLabel", () => {
     expect(getRatingLabel(20).label).toBe("Keep practicing");
   });
 });
+
+// Polygon validation must be independent of position, size and direction.
+function makePolygon(vertices: Point[], bowed = false): Point[] {
+  const result: Point[] = [];
+  for (let i = 0; i < vertices.length; i++) {
+    const a = vertices[i];
+    const b = vertices[(i + 1) % vertices.length];
+    for (let j = 0; j < 80; j++) {
+      const t = j / 80;
+      const offset = bowed ? Math.sin(t * Math.PI) * 3 : 0;
+      const length = Math.hypot(b.x - a.x, b.y - a.y);
+      result.push({
+        x: a.x + (b.x - a.x) * t - (b.y - a.y) / length * offset,
+        y: a.y + (b.y - a.y) * t + (b.x - a.x) / length * offset,
+      });
+    }
+  }
+  result.push(vertices[0]);
+  return result;
+}
+
+describe("polygon rejection", () => {
+  const triangle = [{x: 300, y: 80}, {x: 480, y: 450}, {x: 100, y: 450}];
+  const square = [{x: 100, y: 100}, {x: 400, y: 100}, {x: 400, y: 400}, {x: 100, y: 400}];
+  for (const [name, vertices] of [["triangle", triangle], ["square", square]] as const) {
+    for (const bowed of [false, true]) {
+      it(`rejects ${name} with ${bowed ? "slightly curved" : "straight"} sides`, () => {
+        const result = analyseCircle(makePolygon(vertices, bowed));
+        expect(result.valid).toBe(false);
+        expect(result.score).toBe(0);
+        expect(result.invalidReason).toContain("corners");
+      });
+    }
+  }
+  it("rejects a rotated scaled triangle drawn backwards with a small gap", () => {
+    const points = makePolygon(triangle).map(p => ({x: 700 + (p.x-p.y)*0.6, y: 100 + (p.x+p.y)*0.6})).reverse().slice(5);
+    expect(analyseCircle(points).valid).toBe(false);
+  });
+  it("accepts a wobbly round circle", () => {
+    const points = Array.from({length: 240}, (_, i) => {
+      const angle = i / 239 * 2 * Math.PI;
+      const radius = 150 * (1 + 0.08 * Math.sin(3 * angle) + 0.025 * Math.cos(7 * angle));
+      return {x: 300 + radius * Math.cos(angle), y: 300 + radius * Math.sin(angle)};
+    });
+    expect(analyseCircle(points).valid).toBe(true);
+  });
+});
