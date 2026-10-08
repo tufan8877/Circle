@@ -3,6 +3,7 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import type { Point } from "@/lib/circleAnalysis";
 
 interface DrawCanvasProps {
+  onDrawStart: () => void;
   onDrawComplete: (points: Point[]) => void;
   isAnalyzing: boolean;
   hasResult: boolean;
@@ -11,6 +12,7 @@ interface DrawCanvasProps {
 }
 
 export default function DrawCanvas({
+  onDrawStart,
   onDrawComplete,
   isAnalyzing,
   hasResult,
@@ -98,6 +100,7 @@ export default function DrawCanvas({
       clearCanvas();
     }
 
+    onDrawStart();
     drawingRef.current = true;
     setIsDrawing(true);
     const pt = getPos(e);

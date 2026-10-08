@@ -135,12 +135,24 @@ function Game() {
             }}
           >
             <DrawCanvas
+              onDrawStart={() => setPhase("drawing")}
               onDrawComplete={handleDrawComplete}
               isAnalyzing={phase === "analyzing"}
               hasResult={phase === "result" && result !== null}
               resetSignal={resetSignal}
               lineColor={lineColor}
             />
+
+            {phase === "result" && result && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center p-3 pointer-events-none" role="status" aria-live="polite">
+                <ResultDisplay
+                  score={result.score}
+                  isNewBest={result.isNewBest}
+                  onTryAgain={handleTryAgain}
+                  invalidReason={result.invalidReason}
+                />
+              </div>
+            )}
 
             {/* Analyzing overlay */}
             {phase === "analyzing" && (
@@ -155,17 +167,7 @@ function Game() {
             )}
           </div>
 
-          {/* Result display below canvas */}
-          {phase === "result" && result && (
-            <div className="mt-4 sm:mt-6 w-full flex justify-center">
-              <ResultDisplay
-                score={result.score}
-                isNewBest={result.isNewBest}
-                onTryAgain={handleTryAgain}
-                invalidReason={result.invalidReason}
-              />
-            </div>
-          )}
+
         </div>
 
         {/* Footer */}

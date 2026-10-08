@@ -62,9 +62,9 @@ export default function ResultDisplay({
 
   if (invalidReason) {
     return (
-      <div className="flex flex-col items-center gap-4 animate-fade-in-up text-center px-4">
+      <div className="flex flex-col items-center gap-2 animate-fade-in-up text-center px-4 py-4 rounded-2xl bg-[#0B0F19]/85 max-w-full">
         <div
-          className="w-16 h-16 rounded-full flex items-center justify-center"
+          className="w-10 h-10 rounded-full flex items-center justify-center"
           style={{ background: "rgba(248,113,113,0.12)" }}
         >
           <span className="text-3xl">✕</span>
@@ -73,11 +73,11 @@ export default function ResultDisplay({
           <p className="text-lg font-semibold text-white/90">
             {t('Invalid attempt')}
           </p>
-          <p className="text-sm text-white/50 mt-1">{t(invalidReason)}</p>
+          <p className="text-sm text-white/80 mt-1">{t(invalidReason)}</p>
         </div>
         <button
           onClick={onTryAgain}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl
+          className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 rounded-2xl
                      bg-white/10 hover:bg-white/15 active:scale-95
                      text-white font-medium transition-all duration-200
                      border border-white/10"
@@ -93,13 +93,13 @@ export default function ResultDisplay({
   const glowIntensity = Math.min(1, (score - 80) / 20);
 
   return (
-    <div className="relative flex flex-col items-center gap-4 animate-fade-in-up text-center px-4">
+    <div className="relative flex flex-col items-center gap-2 animate-fade-in-up text-center px-4 py-4 rounded-2xl bg-[#0B0F19]/85 max-w-full">
       {showParticles && <ResultParticles score={score} active={showParticles} />}
 
       {/* Score number */}
       <div className="relative z-10">
         <div
-          className="text-6xl sm:text-7xl font-bold tabular-nums tracking-tight"
+          className="text-5xl sm:text-6xl font-bold tabular-nums tracking-tight"
           style={{
             color,
             textShadow:
@@ -122,7 +122,7 @@ export default function ResultDisplay({
         >
           {t(label)}
         </p>
-        <p className="text-sm text-white/50 max-w-xs">
+        <p className="text-sm text-white/80 max-w-xs">
           {t(subtitle(isNewBest))}
         </p>
       </div>
@@ -139,7 +139,7 @@ export default function ResultDisplay({
       <div className="relative z-10 flex flex-wrap items-center justify-center gap-3 mt-2">
         <button
           onClick={onTryAgain}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl
+          className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 rounded-2xl
                      bg-white text-gray-900 hover:bg-white/90 active:scale-95
                      font-semibold transition-all duration-200
                      shadow-lg shadow-white/10"
@@ -149,7 +149,7 @@ export default function ResultDisplay({
         </button>
         <button
           onClick={handleShare}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl
+          className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 rounded-2xl
                      bg-white/10 hover:bg-white/15 active:scale-95
                      text-white font-medium transition-all duration-200
                      border border-white/10"
