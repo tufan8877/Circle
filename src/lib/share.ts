@@ -8,9 +8,9 @@ export async function shareResult(score: number): Promise<{
   copied: boolean;
   message: string;
 }> {
-  const text = `I scored ${score.toFixed(1)}% on Perfect Circle! Can you beat my score?`;
+  const text = `I scored ${score.toFixed(1)}% on JustOneDraw! Can you beat my score?`;
   const url = typeof window !== "undefined" ? window.location.href : "";
-  const shareData = { title: "Perfect Circle", text, url };
+  const shareData = { title: "JustOneDraw", text, url };
 
   // Try Web Share API.
   if (
