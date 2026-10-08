@@ -1,14 +1,15 @@
+import { shareText, type Language } from './i18n';
 /**
  * Share functionality — uses the native Web Share API when available,
  * falls back to clipboard copy.
  */
 
-export async function shareResult(score: number): Promise<{
+export async function shareResult(score: number, language: Language = 'en'): Promise<{
   shared: boolean;
   copied: boolean;
   message: string;
 }> {
-  const text = `I scored ${score.toFixed(1)}% on JustOneDraw! Can you beat my score?`;
+  const text = shareText(score, language);
   const url = typeof window !== "undefined" ? window.location.href : "";
   const shareData = { title: "JustOneDraw", text, url };
 

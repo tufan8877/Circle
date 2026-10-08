@@ -1,3 +1,4 @@
+import { useLanguage } from '@/lib/i18n';
 import { useEffect, useState } from "react";
 import { RotateCcw, Share2, Sparkles } from "lucide-react";
 import {
@@ -20,6 +21,7 @@ export default function ResultDisplay({
   onTryAgain,
   invalidReason,
 }: ResultDisplayProps) {
+  const {language, t, format} = useLanguage();
   const [displayScore, setDisplayScore] = useState(0);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const color = getScoreColor(score);
@@ -53,7 +55,7 @@ export default function ResultDisplay({
   }, [score, invalidReason]);
 
   const handleShare = async () => {
-    const result = await shareResult(score);
+    const result = await shareResult(score, language);
     setShareMessage(result.message);
     setTimeout(() => setShareMessage(null), 3000);
   };
@@ -69,9 +71,9 @@ export default function ResultDisplay({
         </div>
         <div>
           <p className="text-lg font-semibold text-white/90">
-            Invalid attempt
+            {t('Invalid attempt')}
           </p>
-          <p className="text-sm text-white/50 mt-1">{invalidReason}</p>
+          <p className="text-sm text-white/50 mt-1">{t(invalidReason)}</p>
         </div>
         <button
           onClick={onTryAgain}
@@ -81,7 +83,7 @@ export default function ResultDisplay({
                      border border-white/10"
         >
           <RotateCcw className="w-4 h-4" />
-          Try Again
+          {t('Try Again')}
         </button>
       </div>
     );
@@ -107,7 +109,7 @@ export default function ResultDisplay({
             transition: "color 0.4s ease, text-shadow 0.4s ease",
           }}
         >
-          {displayScore.toFixed(1)}
+          {format(displayScore)}
           <span className="text-3xl sm:text-4xl ml-1">%</span>
         </div>
       </div>
@@ -118,10 +120,10 @@ export default function ResultDisplay({
           className="text-xl sm:text-2xl font-semibold transition-colors duration-300"
           style={{ color }}
         >
-          {label}
+          {t(label)}
         </p>
         <p className="text-sm text-white/50 max-w-xs">
-          {subtitle(isNewBest)}
+          {t(subtitle(isNewBest))}
         </p>
       </div>
 
@@ -129,7 +131,7 @@ export default function ResultDisplay({
       {isNewBest && score > 0 && (
         <div className="relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs font-medium animate-fade-in-up">
           <Sparkles className="w-3.5 h-3.5" />
-          New personal best!
+          {t('New personal best!')}
         </div>
       )}
 
@@ -143,7 +145,7 @@ export default function ResultDisplay({
                      shadow-lg shadow-white/10"
         >
           <RotateCcw className="w-4 h-4" />
-          Try Again
+          {t('Try Again')}
         </button>
         <button
           onClick={handleShare}
@@ -153,14 +155,14 @@ export default function ResultDisplay({
                      border border-white/10"
         >
           <Share2 className="w-4 h-4" />
-          Share Result
+          {t('Share Result')}
         </button>
       </div>
 
       {/* Share feedback toast */}
       {shareMessage && (
         <p className="relative z-10 text-xs text-white/60 animate-fade-in-up">
-          {shareMessage}
+          {t(shareMessage)}
         </p>
       )}
     </div>

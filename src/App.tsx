@@ -1,3 +1,4 @@
+import { LanguageProvider, useLanguage } from '@/lib/i18n';
 import { useState, useCallback, useEffect } from "react";
 import { Pencil } from "lucide-react";
 import DrawCanvas from "@/components/DrawCanvas";
@@ -14,6 +15,11 @@ import type { HighscoreData } from "@/lib/highscore";
 type Phase = "idle" | "drawing" | "analyzing" | "result";
 
 export default function App() {
+  return <LanguageProvider><Game /></LanguageProvider>;
+}
+
+function Game() {
+  const {language, setLanguage, t} = useLanguage();
   const [phase, setPhase] = useState<Phase>("idle");
   const [resetSignal, setResetSignal] = useState(0);
   const [result, setResult] = useState<{
@@ -81,6 +87,13 @@ export default function App() {
           paddingRight: "max(1rem, env(safe-area-inset-right))",
         }}
       >
+        <div className="flex justify-end w-full max-w-2xl mb-3" role="group" aria-label={language === 'de' ? 'Sprache wählen' : 'Choose language'}>
+          {(['de', 'en'] as const).map(value => (
+            <button key={value} type="button" lang={value} aria-label={value === 'de' ? 'Deutsch' : 'English'} aria-pressed={language === value} onClick={() => setLanguage(value)} className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${language === value ? 'bg-cyan-400/15 text-cyan-300' : 'text-white/50 hover:text-white'}`}>
+              {value.toUpperCase()}
+            </button>
+          ))}
+        </div>
         {/* Header */}
         <header
           className={`flex flex-col items-center text-center mb-4 sm:mb-6 ${
@@ -94,10 +107,10 @@ export default function App() {
             </h1>
           </div>
           <p className="text-base sm:text-lg text-white/60 font-medium">
-            How perfect is your circle?
+            {t('How perfect is your circle?')}
           </p>
           <p className="text-xs sm:text-sm text-white/30 mt-1">
-            Draw a circle. Test your precision. Beat your record.
+            {t('Draw a circle. Test your precision. Beat your record.')}
           </p>
         </header>
 
@@ -135,7 +148,7 @@ export default function App() {
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-10 h-10 rounded-full border-2 border-white/20 border-t-cyan-400 animate-spin" />
                   <span className="text-sm text-white/60 font-medium">
-                    Analyzing…
+                    {t('Analyzing…')}
                   </span>
                 </div>
               </div>
@@ -163,7 +176,7 @@ export default function App() {
           style={{ animationDelay: "0.2s" }}
         >
           <p className="text-xs text-white/20">
-            Draw one smooth, closed circle. Release to analyze.
+            {t('Draw one smooth, closed circle. Release to analyze.')}
           </p>
         </footer>
       </div>

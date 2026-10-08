@@ -1,3 +1,4 @@
+import { useLanguage } from '@/lib/i18n';
 import { useRef, useEffect, useCallback, useState } from "react";
 import type { Point } from "@/lib/circleAnalysis";
 
@@ -16,6 +17,7 @@ export default function DrawCanvas({
   resetSignal,
   lineColor,
 }: DrawCanvasProps) {
+  const {t} = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pointsRef = useRef<Point[]>([]);
@@ -164,7 +166,7 @@ export default function DrawCanvas({
               <div className="w-2 h-2 rounded-full bg-white/20" />
             </div>
             <span className="text-sm font-medium tracking-wide">
-              Draw a circle here
+              {t('Draw a circle here')}
             </span>
           </div>
         </div>
