@@ -361,6 +361,30 @@ function scoreSmoothness(points: Point[], fit: CircleFit): number {
   return Math.max(0, 1 - reversalRate * 4);
 }
 
+/**
+ * Reject pronounced polygons before scoring. On arc-length samples, a
+ * straight side has chord/arc length near 1; a circle bends continuously.
+ * Use windows spanning 10% of the stroke, tolerating small hand tremors.
+ * Combine long straight sections with low circularity so an imperfect
+ * round stroke is not rejected solely because of a local flat spot.
+ */
+function isAngularShape(points: Point[]): boolean {
+  const window = Math.round(points.length * 0.1);
+  let straightWindows = 0;
+  let windows = 0;
+  for (let start = 0; start + window < points.length; start++) {
+    let arc = 0;
+    for (let i = start; i < start + window; i++) {
+      arc += Math.hypot(points[i + 1].x - points[i].x, points[i + 1].y - points[i].y);
+    }
+    const end = points[start + window];
+    const chord = Math.hypot(end.x - points[start].x, end.y - points[start].y);
+    if (arc > 0 && chord / arc > 0.995) straightWindows++;
+    windows++;
+  }
+  return straightWindows / windows > 0.55 && scoreCircularity(points) < 0.9;
+}
+
 // ─── 4. Combine ──────────────────────────────────────────────────────
 
 /**
@@ -425,6 +449,10 @@ export function analyseCircle(rawPoints: Point[]): AnalysisResult {
       valid: false,
       invalidReason: "Too many rotations detected.",
     };
+  }
+
+  if (isAngularShape(pts)) {
+    return invalidResult(rawPoints, "This shape has straight sides and corners. Draw a round circle.");
   }
 
   // ── Sub-scores ──
