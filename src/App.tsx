@@ -1,5 +1,5 @@
 import { LanguageProvider, useLanguage } from '@/lib/i18n';
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Pencil } from "lucide-react";
 import DrawCanvas from "@/components/DrawCanvas";
 import ResultDisplay from "@/components/ResultDisplay";
@@ -20,6 +20,7 @@ export default function App() {
 
 function Game() {
   const {language, setLanguage, t} = useLanguage();
+  const imprintRef = useRef<HTMLDialogElement>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [resetSignal, setResetSignal] = useState(0);
   const [result, setResult] = useState<{
@@ -180,7 +181,18 @@ function Game() {
           <p className="text-xs text-white/20">
             {t('Draw one smooth, closed circle. Release to analyze.')}
           </p>
+          <button type="button" className="mt-3 px-3 py-2 text-sm text-white/60 hover:text-white underline underline-offset-4" onClick={() => imprintRef.current?.showModal()}>
+            {language === 'de' ? 'Impressum' : 'Legal notice'}
+          </button>
         </footer>
+        <dialog ref={imprintRef} aria-labelledby="imprint-title" className="w-[calc(100%_-_2rem)] max-w-md rounded-2xl border border-white/15 bg-[#0B0F19] p-6 text-white shadow-2xl backdrop:bg-black/70">
+          <h2 id="imprint-title" className="text-xl font-semibold mb-5">{language === 'de' ? 'Impressum' : 'Legal notice'}</h2>
+          <p className="text-base mb-2">Tufan Dönmezyürek</p>
+          <a href="mailto:tufandonmezyurek@gmail.com" className="text-cyan-300 underline underline-offset-4 break-all">tufandonmezyurek@gmail.com</a>
+          <form method="dialog" className="mt-6 flex justify-end">
+            <button className="rounded-xl bg-white/10 hover:bg-white/15 px-4 py-2 text-sm font-medium">{language === 'de' ? 'Schließen' : 'Close'}</button>
+          </form>
+        </dialog>
       </div>
     </div>
   );
