@@ -127,13 +127,17 @@ export function resamplePoints(points: Point[], count: number): Point[] {
  * Center = (a/2, b/2), radius = sqrt(c + a²/4 + b²/4)
  */
 export function fitCircle(points: Point[]): CircleFit {
+  if (points.length === 0) return {cx: 0, cy: 0, r: 0};
+  // Center the coordinates to avoid cancellation in the normal equations.
+  const originX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+  const originY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
   let sumX = 0, sumY = 0;
   let sumX2 = 0, sumY2 = 0, sumXY = 0;
   let sumX3 = 0, sumY3 = 0, sumXY2 = 0, sumX2Y = 0;
   const n = points.length;
 
   for (const p of points) {
-    const x = p.x, y = p.y;
+    const x = p.x - originX, y = p.y - originY;
     const x2 = x * x, y2 = y * y;
     sumX += x;
     sumY += y;
@@ -161,7 +165,7 @@ export function fitCircle(points: Point[]): CircleFit {
   const det = det3(A);
   if (Math.abs(det) < 1e-12) {
     // Degenerate — return centroid with zero radius.
-    return { cx: sumX / n, cy: sumY / n, r: 0 };
+    return { cx: originX + sumX / n, cy: originY + sumY / n, r: 0 };
   }
 
   const a = det3(replaceCol(A, 0, b)) / det;
@@ -171,7 +175,7 @@ export function fitCircle(points: Point[]): CircleFit {
   const cx = -a / 2;
   const cy = -bb / 2;
   const r = Math.sqrt(Math.max(0, (a * a + bb * bb) / 4 - c));
-  return { cx, cy, r };
+  return { cx: cx + originX, cy: cy + originY, r };
 }
 
 function det3(m: number[][]): number {
@@ -218,7 +222,7 @@ function scoreClosure(points: Point[], fit: CircleFit): number {
   const gap = Math.hypot(end.x - start.x, end.y - start.y);
   if (fit.r === 0) return 0;
   const ratio = gap / fit.r;
-  // ratio=0 → 1, ratio=CLOSURE_TOLERANCE → ~0.95, ratio>1 → 0
+  // ratio=0 → 1; larger endpoint gaps reduce the closure score.
   if (ratio <= 0.02) return 1;
   return Math.max(0, 1 - (ratio / CLOSURE_TOLERANCE) ** 1.5);
 }
@@ -254,6 +258,10 @@ function polygonPerimeter(points: Point[]): number {
       points[i + 1].x - points[i].x,
       points[i + 1].y - points[i].y,
     );
+  }
+  // Area closes the polygon too: perimeter must include that same edge.
+  if (points.length > 1) {
+    perim += Math.hypot(points[0].x - points[points.length - 1].x, points[0].y - points[points.length - 1].y);
   }
   return perim;
 }
@@ -362,27 +370,42 @@ function scoreSmoothness(points: Point[], fit: CircleFit): number {
 }
 
 /**
- * Reject pronounced polygons before scoring. On arc-length samples, a
- * straight side has chord/arc length near 1; a circle bends continuously.
- * Use windows spanning 10% of the stroke, tolerating small hand tremors.
- * Combine long straight sections with low circularity so an imperfect
- * round stroke is not rejected solely because of a local flat spot.
+ * Scale-relative Ramer–Douglas–Peucker simplification detects long sides
+ * even when hand tremor adds little zigzags. Split the closed stroke at
+ * its farthest point so the starting position does not hide a corner.
+ * A circle needs about 16 vertices at this tolerance; pronounced shapes
+ * approximated by at most eight sides are rejected. This is a gameplay
+ * threshold, not a universal mathematical classification of all shapes.
  */
-function isAngularShape(points: Point[]): boolean {
-  const window = Math.round(points.length * 0.1);
-  let straightWindows = 0;
-  let windows = 0;
-  for (let start = 0; start + window < points.length; start++) {
-    let arc = 0;
-    for (let i = start; i < start + window; i++) {
-      arc += Math.hypot(points[i + 1].x - points[i].x, points[i + 1].y - points[i].y);
-    }
-    const end = points[start + window];
-    const chord = Math.hypot(end.x - points[start].x, end.y - points[start].y);
-    if (arc > 0 && chord / arc > 0.995) straightWindows++;
-    windows++;
+function isAngularShape(points: Point[], radius: number): boolean {
+  const tolerance = radius * 0.035;
+  const first = points[0];
+  let split = 1;
+  let farthest = 0;
+  for (let i = 1; i < points.length; i++) {
+    const distance = Math.hypot(points[i].x - first.x, points[i].y - first.y);
+    if (distance > farthest) {farthest = distance; split = i;}
   }
-  return straightWindows / windows > 0.55 && scoreCircularity(points) < 0.9;
+  const closed = [...points, first];
+  const vertices = simplifyStroke(closed.slice(0, split + 1), tolerance).length
+    + simplifyStroke(closed.slice(split), tolerance).length - 2;
+  return vertices <= 8;
+}
+
+function simplifyStroke(points: Point[], tolerance: number): Point[] {
+  if (points.length <= 2) return points;
+  const a = points[0], b = points[points.length - 1];
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const lengthSquared = dx * dx + dy * dy;
+  let maxDistance = 0, split = 0;
+  for (let i = 1; i < points.length - 1; i++) {
+    const p = points[i];
+    const t = lengthSquared ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared)) : 0;
+    const distance = Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+    if (distance > maxDistance) {maxDistance = distance; split = i;}
+  }
+  if (maxDistance <= tolerance) return [a, b];
+  return [...simplifyStroke(points.slice(0, split + 1), tolerance).slice(0, -1), ...simplifyStroke(points.slice(split), tolerance)];
 }
 
 // ─── 4. Combine ──────────────────────────────────────────────────────
@@ -403,6 +426,9 @@ function isAngularShape(points: Point[]): boolean {
  */
 export function analyseCircle(rawPoints: Point[]): AnalysisResult {
   // ── Guards ──
+  if (rawPoints.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) {
+    return invalidResult([], "Could not fit a circle.");
+  }
   if (rawPoints.length < MIN_RAW_POINTS) {
     return invalidResult(rawPoints, "Too few points to analyse.");
   }
@@ -433,25 +459,17 @@ export function analyseCircle(rawPoints: Point[]): AnalysisResult {
   // ── Angular coverage ──
   const { totalAngle, laps } = angularCoverage(pts, fit);
 
-  // Reject if too little angular coverage (< 270°).
-  if (totalAngle < (3 * Math.PI) / 2) {
-    return {
-      ...buildResult(pts, fit, totalAngle, laps),
-      valid: false,
-      invalidReason: "The drawing doesn't complete a full circle.",
-    };
+  // A valid attempt must make approximately one turn and close the loop.
+  // Allow a little overshoot/undershoot, but never score multiple laps.
+  if (laps > 1.08) {
+    return invalidResult(rawPoints, "Too many rotations detected.");
   }
-
-  // Reject if way too many laps (e.g. spiral).
-  if (laps > 2.5) {
-    return {
-      ...buildResult(pts, fit, totalAngle, laps),
-      valid: false,
-      invalidReason: "Too many rotations detected.",
-    };
+  const start = pts[0], end = pts[pts.length - 1];
+  const gapRatio = Math.hypot(end.x - start.x, end.y - start.y) / fit.r;
+  if (laps < 0.94 || gapRatio > 0.25) {
+    return invalidResult(rawPoints, "The drawing doesn't complete a full circle.");
   }
-
-  if (isAngularShape(pts)) {
+  if (isAngularShape(pts, fit.r)) {
     return invalidResult(rawPoints, "This shape has straight sides and corners. Draw a round circle.");
   }
 
@@ -502,7 +520,7 @@ function buildResult(
     score = allPerfect ? 100 : Math.min(99.9, score);
   }
 
-  score = Math.max(0, Math.min(100, score));
+  score = Math.round(Math.max(0, Math.min(100, score)) * 10) / 10;
 
   return {
     score,

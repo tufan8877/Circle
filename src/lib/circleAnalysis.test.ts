@@ -190,10 +190,10 @@ describe("analyseCircle", () => {
     expect(result.score).toBeLessThan(50);
   });
 
-  it("penalizes multiple laps", () => {
+  it("rejects multiple laps", () => {
     const single = analyseCircle(makePerfectCircle(300, 300, 150, 200));
     const double = analyseCircle(makeDoubleCircle(300, 300, 150, 300));
-    expect(double.valid).toBe(true);
+    expect(double.valid).toBe(false);
     expect(double.score).toBeLessThan(single.score);
   });
 
@@ -317,5 +317,64 @@ describe("polygon rejection", () => {
       return {x: 300 + radius * Math.cos(angle), y: 300 + radius * Math.sin(angle)};
     });
     expect(analyseCircle(points).valid).toBe(true);
+  });
+});
+
+describe('circle validation regressions', () => {
+  function arc(turns: number, n = 200): Point[] {
+    return Array.from({length: n}, (_, i) => {
+      const a = i / (n - 1) * Math.PI * 2 * turns;
+      return {x: 300 + 150 * Math.cos(a), y: 300 + 150 * Math.sin(a)};
+    });
+  }
+  it.each([0.75, 5 / 6, 11 / 12, 1.5, 2, 3])('rejects open or repeated circle with %s turns', turns => {
+    const result = analyseCircle(arc(turns));
+    expect(result.valid).toBe(false);
+    expect(result.score).toBe(0);
+  });
+  it('allows a small natural closing gap', () => {
+    expect(analyseCircle(arc(0.985)).valid).toBe(true);
+  });
+  it('rejects a one-turn spiral', () => {
+    const spiral = arc(1).map((p, i) => {
+      const factor = (80 + 80 * i / 199) / 150;
+      return {x: 300 + (p.x - 300) * factor, y: 300 + (p.y - 300) * factor};
+    });
+    expect(analyseCircle(spiral).valid).toBe(false);
+  });
+  it.each([3, 4, 5, 6, 7, 8])('rejects a %s-sided shape with hand tremor', sides => {
+    const vertices = Array.from({length: sides}, (_, i) => {
+      const a = i / sides * Math.PI * 2;
+      return {x: 300 + 150 * Math.cos(a), y: 300 + 150 * Math.sin(a)};
+    });
+    const points = makePolygon(vertices).map((p, i) => ({x: p.x + 2 * Math.sin(i * 3.1), y: p.y + 2 * Math.cos(i * 2.7)}));
+    expect(analyseCircle(points).valid).toBe(false);
+  });
+  it.each([20, 30, 100, 200, 500])('accepts a circle sampled at %s points', n => {
+    const result = analyseCircle(arc(1, n));
+    expect(result.valid).toBe(true);
+    expect(result.score).toBeGreaterThan(98);
+  });
+  it('does not change score when the same polyline is sampled more densely', () => {
+    const points = arc(1, 40);
+    const dense = points.flatMap((a, i) => {
+      if (i === points.length - 1) return [a];
+      const b = points[i + 1];
+      const count = i < 15 ? 20 : 1;
+      return Array.from({length: count}, (_, j) => ({x: a.x + (b.x - a.x) * j / count, y: a.y + (b.y - a.y) * j / count}));
+    });
+    expect(analyseCircle(points).score).toBe(analyseCircle(dense).score);
+  });
+  it('is stable for translated coordinates', () => {
+    const points = arc(1);
+    expect(analyseCircle(points.map(p => ({x: p.x + 1000000, y: p.y + 1000000}))).score).toBe(analyseCircle(points).score);
+  });
+  it('returns finite zero scores for invalid coordinates and empty input', () => {
+    for (const points of [[], [{x: NaN, y: 0}], [{x: Infinity, y: 0}]]) {
+      const result = analyseCircle(points);
+      expect(result.valid).toBe(false);
+      expect(result.score).toBe(0);
+      expect(Number.isFinite(result.fit.r)).toBe(true);
+    }
   });
 });
