@@ -1,4 +1,4 @@
-import {forwardRef, useEffect, useImperativeHandle, useRef} from 'react';
+import {forwardRef, useEffect, useImperativeHandle, useRef, useState} from 'react';
 import {useLanguage} from '@/lib/i18n';
 import {SurpriseAudio} from '@/lib/surpriseAudio';
 import {markSurpriseShown} from '@/lib/surprise';
@@ -10,12 +10,16 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle>(function SurpriseVideo(_, 
   const audioRef = useRef(new SurpriseAudio());
   const framesRef = useRef<HTMLImageElement | null>(null);
   const pendingRef = useRef(false);
+  const startingRef = useRef(false);
   const animationRef = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const startRef = useRef<() => void>(() => {});
   const {language} = useLanguage();
+  const testMode = new URLSearchParams(window.location.search).get('video-test') === '1';
+  const [audioStatus, setAudioStatus] = useState('');
   const close = () => {
     pendingRef.current = false;
+    startingRef.current = false;
     clearTimeout(timeoutRef.current);
     cancelAnimationFrame(animationRef.current);
     audioRef.current.stop();
@@ -23,10 +27,23 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle>(function SurpriseVideo(_, 
   };
   startRef.current = () => {
     const dialog = dialogRef.current, canvas = canvasRef.current, frames = framesRef.current;
-    if (!pendingRef.current || !dialog || !canvas || !frames) return;
+    if (!pendingRef.current || startingRef.current || !dialog || !canvas || !frames) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) {close(); return;}
+    startingRef.current = true;
+    if (testMode) setAudioStatus(language === 'de' ? 'Ton wird gestartet…' : 'Starting audio…');
+    // Wait for decoding and resume; never silently ignore a failed audio start.
+    void audioRef.current.start().then(playing => {
+    if (!pendingRef.current) return;
+    if (!playing) {
+      if (testMode) setAudioStatus(`Audio failed: ${audioRef.current.status}`);
+      console.warn('Surprise audio did not start:', audioRef.current.status);
+      close();
+      return;
+    }
+    if (testMode) setAudioStatus(`Audio started: ${audioRef.current.status}`);
     pendingRef.current = false;
+    startingRef.current = false;
     clearTimeout(timeoutRef.current);
     if (!dialog.open) dialog.showModal();
     // Render the supplied video's 30 frames directly. This avoids video.play()
@@ -40,7 +57,6 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle>(function SurpriseVideo(_, 
     paint(0);
     canvas.dataset.playbackStarted = String(Date.now());
     markSurpriseShown();
-    audioRef.current.play();
     const started = performance.now();
     let lastFrame = 0;
     const tick = (now: number) => {
@@ -54,6 +70,11 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle>(function SurpriseVideo(_, 
     };
     animationRef.current = requestAnimationFrame(tick);
     timeoutRef.current = setTimeout(close, 2500);
+    }).catch(error => {
+      if (testMode) setAudioStatus(`Audio error: ${String(error)}`);
+      console.warn('Surprise audio failed', error);
+      close();
+    });
   };
   useImperativeHandle(ref, () => ({
     unlockAudio: () => audioRef.current.unlock(),
@@ -61,10 +82,13 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle>(function SurpriseVideo(_, 
       if (pendingRef.current || dialogRef.current?.open) return;
       pendingRef.current = true;
       // If loading is slow, wait for actual frames before displaying anything.
-      timeoutRef.current = setTimeout(close, 15000);
+      timeoutRef.current = setTimeout(() => {
+        if (testMode) setAudioStatus(`Audio/load timeout: ${audioRef.current.status}`);
+        close();
+      }, 5000);
       startRef.current();
     },
-  }), []);
+  }), [testMode]);
   useEffect(() => {
     const audio = audioRef.current;
     const image = new Image();
@@ -91,12 +115,15 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle>(function SurpriseVideo(_, 
     };
   }, []);
   return (
+    <>
+    {testMode && audioStatus && <p role="status" className="mt-3 text-sm text-white/70">{audioStatus}</p>}
     <dialog ref={dialogRef} onCancel={close} aria-label="Video" className="fixed inset-0 m-auto h-[100dvh] max-h-none w-screen max-w-none border-0 bg-black p-0 text-white backdrop:bg-black">
       <div className="flex h-full w-full items-center justify-center">
         <canvas ref={canvasRef} width={512} height={910} aria-label={language === 'de' ? 'Überraschungsvideo' : 'Surprise video'} style={{height: '100%', width: 'auto', maxWidth: '100%', objectFit: 'contain'}} />
       </div>
       <button type="button" onClick={close} className="absolute right-4 top-4 rounded-xl bg-black/70 px-4 py-3 text-sm text-white" style={{top: 'max(1rem, env(safe-area-inset-top))'}}>{language === 'de' ? 'Schließen' : 'Close'}</button>
     </dialog>
+    </>
   );
 });
 export default SurpriseVideo;

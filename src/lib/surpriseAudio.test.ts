@@ -23,6 +23,38 @@ function setup() {
   return {context, sources, decoded, fetchMock, audio: new SurpriseAudio()};
 }
 describe('prepared surprise audio', () => {
+  it('selects the playback audio session on supported iPhones', () => {
+    const {audio} = setup();
+    const session = {type: 'ambient'};
+    vi.stubGlobal('navigator', {audioSession: session});
+    audio.unlock();
+    expect(session.type).toBe('playback');
+  });
+  it('waits for both decoding and resume before starting the real sound', async () => {
+    const {audio, context, sources, decoded} = setup();
+    context.state = 'suspended';
+    let finishResume!: () => void;
+    context.resume.mockImplementation(() => new Promise<void>(resolve => {finishResume = resolve;}));
+    const started = audio.start();
+    await vi.waitFor(() => expect(context.decodeAudioData).toHaveBeenCalled());
+    expect(sources.some(source => source.buffer === decoded)).toBe(false);
+    context.state = 'running';
+    finishResume();
+    expect(await started).toBe(true);
+    expect(sources.some(source => source.buffer === decoded)).toBe(true);
+  });
+  it('cancels a delayed audio start when the display is closed', async () => {
+    const {audio, context, sources, decoded} = setup();
+    context.state = 'suspended';
+    let finishResume!: () => void;
+    context.resume.mockImplementation(() => new Promise<void>(resolve => {finishResume = resolve;}));
+    const started = audio.start();
+    audio.stop();
+    context.state = 'running';
+    finishResume();
+    expect(await started).toBe(false);
+    expect(sources.some(source => source.buffer === decoded)).toBe(false);
+  });
   it('resumes synchronously, prepares once, and never plays the real audio during unlocking', async () => {
     const {audio, context, sources, decoded, fetchMock} = setup();
     audio.unlock();
