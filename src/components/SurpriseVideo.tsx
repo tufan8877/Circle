@@ -31,23 +31,29 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle>(function SurpriseVideo(_, 
     if (!dialog.open) dialog.showModal();
     // Render the supplied video's 30 frames directly. This avoids video.play()
     // restrictions (including iOS Low Power Mode) without showing a play button.
-    const paint = (frame: number) => ctx.drawImage(frames,
-      (frame % 5) * 512, Math.floor(frame / 5) * 910, 512, 910,
-      0, 0, 512, 910);
+    const paint = (frame: number) => {
+      ctx.drawImage(frames,
+        (frame % 5) * 512, Math.floor(frame / 5) * 910, 512, 910,
+        0, 0, 512, 910);
+      canvas.dataset.frame = String(frame);
+    };
     paint(0);
+    canvas.dataset.playbackStarted = String(Date.now());
     markSurpriseShown();
     audioRef.current.play();
     const started = performance.now();
     let lastFrame = 0;
     const tick = (now: number) => {
       const elapsed = now - started;
-      if (elapsed >= 1000) {close(); return;}
+      // Keep the last frame visible briefly so the one-second clip is not
+      // missed during slow mobile rendering. Audio retains its original timing.
+      if (elapsed >= 2000) {close(); return;}
       const frame = Math.min(29, Math.floor(elapsed * 30 / 1000));
       if (frame !== lastFrame) {paint(frame); lastFrame = frame;}
       animationRef.current = requestAnimationFrame(tick);
     };
     animationRef.current = requestAnimationFrame(tick);
-    timeoutRef.current = setTimeout(close, 1500);
+    timeoutRef.current = setTimeout(close, 2500);
   };
   useImperativeHandle(ref, () => ({
     unlockAudio: () => audioRef.current.unlock(),
