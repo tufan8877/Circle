@@ -4,9 +4,10 @@ import {SurpriseAudio} from '@/lib/surpriseAudio';
 import {markSurpriseShown} from '@/lib/surprise';
 
 export interface SurpriseVideoHandle {play: () => void; unlockAudio: () => void}
-const SurpriseVideo = forwardRef<SurpriseVideoHandle>(function SurpriseVideo(_, ref) {
+const SurpriseVideo = forwardRef<SurpriseVideoHandle, {testAttempts: number}>(function SurpriseVideo({testAttempts}, ref) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const directAudioRef = useRef<HTMLAudioElement>(null);
   const audioRef = useRef(new SurpriseAudio());
   const framesRef = useRef<HTMLImageElement | null>(null);
   const pendingRef = useRef(false);
@@ -17,12 +18,14 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle>(function SurpriseVideo(_, 
   const {language} = useLanguage();
   const testMode = new URLSearchParams(window.location.search).get('video-test') === '1';
   const [audioStatus, setAudioStatus] = useState('');
+  const [directStatus, setDirectStatus] = useState('');
   const close = () => {
     pendingRef.current = false;
     startingRef.current = false;
     clearTimeout(timeoutRef.current);
     cancelAnimationFrame(animationRef.current);
     audioRef.current.stop();
+    directAudioRef.current?.pause();
     dialogRef.current?.close();
   };
   startRef.current = () => {
@@ -116,7 +119,22 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle>(function SurpriseVideo(_, 
   }, []);
   return (
     <>
-    {testMode && audioStatus && <p role="status" className="mt-3 text-sm text-white/70">{audioStatus}</p>}
+    {testMode && <section className="mb-4 w-full max-w-2xl rounded-xl border border-cyan-400/30 bg-cyan-400/5 p-4 text-sm text-white" aria-label="Audio diagnostics">
+      <p className="font-semibold">{language === 'de' ? 'Videotest v3' : 'Video test v3'} · {Math.min(testAttempts, 5)}/5</p>
+      <p className="mt-2" role="status">{audioStatus || (language === 'de' ? 'Automatischer Ton: noch nicht ausgelöst.' : 'Automatic audio: not triggered yet.')}</p>
+      <button type="button" className="mt-3 rounded-lg bg-cyan-400 px-4 py-2 font-semibold text-black" onClick={() => {
+        const audio = directAudioRef.current;
+        if (!audio) return;
+        audio.currentTime = 0;
+        audio.muted = false;
+        audio.volume = 1;
+        setDirectStatus('Direct audio: starting');
+        // Call native play directly from this trusted click, without Web Audio.
+        void audio.play().then(() => setDirectStatus('Direct audio: started')).catch(error => setDirectStatus(`Direct audio: ${error.name}: ${error.message}`));
+      }}>{language === 'de' ? 'Ton direkt testen (1 Sekunde)' : 'Test sound directly (1 second)'}</button>
+      <p className="mt-2" role="status">{directStatus}</p>
+      <audio ref={directAudioRef} src="/scary-audio.wav" preload="auto" onError={() => setDirectStatus(`Direct audio: media error ${directAudioRef.current?.error?.code ?? 'unknown'}`)} />
+    </section>}
     <dialog ref={dialogRef} onCancel={close} aria-label="Video" className="fixed inset-0 m-auto h-[100dvh] max-h-none w-screen max-w-none border-0 bg-black p-0 text-white backdrop:bg-black">
       <div className="flex h-full w-full items-center justify-center">
         <canvas ref={canvasRef} width={512} height={910} aria-label={language === 'de' ? 'Überraschungsvideo' : 'Surprise video'} style={{height: '100%', width: 'auto', maxWidth: '100%', objectFit: 'contain'}} />

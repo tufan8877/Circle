@@ -26,6 +26,7 @@ function Game() {
   const surpriseRef = useRef<SurpriseVideoHandle>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [resetSignal, setResetSignal] = useState(0);
+  const [testAttempts, setTestAttempts] = useState(0);
   const [result, setResult] = useState<{
     score: number;
     isNewBest: boolean;
@@ -38,6 +39,7 @@ function Game() {
   const reducedMotion = usePrefersReducedMotion();
 
   const handleDrawComplete = useCallback((points: Point[]) => {
+    setTestAttempts(count => count + 1);
     setPhase("analyzing");
     if (recordSurpriseAttempt()) surpriseRef.current?.play();
 
@@ -119,6 +121,8 @@ function Game() {
           </p>
         </header>
 
+        <SurpriseVideo ref={surpriseRef} testAttempts={testAttempts} />
+
         {/* Stats bar */}
         <div
           className={`mb-4 sm:mb-6 ${
@@ -178,7 +182,6 @@ function Game() {
 
         </div>
 
-        <SurpriseVideo ref={surpriseRef} />
 
         {/* Footer */}
         <footer
