@@ -140,7 +140,10 @@ function Game() {
             }}
           >
             <DrawCanvas
-              onDrawStart={() => setPhase("drawing")}
+              onDrawStart={() => {
+                surpriseRef.current?.unlockAudio();
+                setPhase("drawing");
+              }}
               onDrawComplete={handleDrawComplete}
               isAnalyzing={phase === "analyzing"}
               hasResult={phase === "result" && result !== null}
