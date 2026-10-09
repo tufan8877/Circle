@@ -23,7 +23,7 @@ function loadState(): SurpriseState {
   // Opt-in recovery for the owner's old failed/consumed record. Apply only once,
   // persist through the fifth showing and never reset other visitors.
   const needsRepair = REPAIR_VERSION === '1' ? !state.repaired
-    : REPAIR_VERSION === '2' && state.repairVersion !== '2';
+    : (REPAIR_VERSION === '2' || REPAIR_VERSION === '3') && Number(state.repairVersion ?? 0) < Number(REPAIR_VERSION);
   if (needsRepair) {
     state = {attempts: 0, shown: false, repaired: true, repairVersion: REPAIR_VERSION!};
     saveState(state);

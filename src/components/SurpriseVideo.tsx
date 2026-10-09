@@ -35,16 +35,7 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle, {testAttempts: number}>(fu
     if (!ctx) {close(); return;}
     startingRef.current = true;
     if (testMode) setAudioStatus(language === 'de' ? 'Ton wird gestartet…' : 'Starting audio…');
-    // Wait for decoding and resume; never silently ignore a failed audio start.
-    void audioRef.current.start().then(playing => {
-    if (!pendingRef.current) return;
-    if (!playing) {
-      if (testMode) setAudioStatus(`Audio failed: ${audioRef.current.status}`);
-      console.warn('Surprise audio did not start:', audioRef.current.status);
-      close();
-      return;
-    }
-    if (testMode) setAudioStatus(`Audio started: ${audioRef.current.status}`);
+    // Image playback must not depend on an audio promise settling on iOS.
     pendingRef.current = false;
     startingRef.current = false;
     clearTimeout(timeoutRef.current);
@@ -73,17 +64,30 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle, {testAttempts: number}>(fu
     };
     animationRef.current = requestAnimationFrame(tick);
     timeoutRef.current = setTimeout(close, 2500);
-    }).catch(error => {
-      if (testMode) setAudioStatus(`Audio error: ${String(error)}`);
-      console.warn('Surprise audio failed', error);
-      close();
-    });
   };
   useImperativeHandle(ref, () => ({
     unlockAudio: () => audioRef.current.unlock(),
     play: () => {
       if (pendingRef.current || dialogRef.current?.open) return;
       pendingRef.current = true;
+      // Use the same native audio path as the successful direct test. Invoke
+      // play synchronously while the drawing's release gesture is still active.
+      const audio = directAudioRef.current;
+      if (audio) {
+        audio.currentTime = 0;
+        audio.muted = false;
+        audio.volume = 1;
+        void audio.play().then(() => {
+          if (testMode) setAudioStatus('Native audio: started');
+        }).catch(error => {
+          if (testMode) setAudioStatus(`Native audio: ${error.name}`);
+          // Web Audio remains a fallback, never a gate for the image.
+          if (!pendingRef.current && !dialogRef.current?.open) return;
+          void audioRef.current.start().then(playing => {
+            if (testMode) setAudioStatus(playing ? 'Fallback audio: started' : `Audio failed: ${audioRef.current.status}`);
+          });
+        });
+      }
       // If loading is slow, wait for actual frames before displaying anything.
       timeoutRef.current = setTimeout(() => {
         if (testMode) setAudioStatus(`Audio/load timeout: ${audioRef.current.status}`);
@@ -120,7 +124,7 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle, {testAttempts: number}>(fu
   return (
     <>
     {testMode && <section className="mb-4 w-full max-w-2xl rounded-xl border border-cyan-400/30 bg-cyan-400/5 p-4 text-sm text-white" aria-label="Audio diagnostics">
-      <p className="font-semibold">{language === 'de' ? 'Videotest v3' : 'Video test v3'} · {Math.min(testAttempts, 5)}/5</p>
+      <p className="font-semibold">{language === 'de' ? 'Videotest v4' : 'Video test v4'} · {Math.min(testAttempts, 5)}/5</p>
       <p className="mt-2" role="status">{audioStatus || (language === 'de' ? 'Automatischer Ton: noch nicht ausgelöst.' : 'Automatic audio: not triggered yet.')}</p>
       <button type="button" className="mt-3 rounded-lg bg-cyan-400 px-4 py-2 font-semibold text-black" onClick={() => {
         const audio = directAudioRef.current;
@@ -133,8 +137,8 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle, {testAttempts: number}>(fu
         void audio.play().then(() => setDirectStatus('Direct audio: started')).catch(error => setDirectStatus(`Direct audio: ${error.name}: ${error.message}`));
       }}>{language === 'de' ? 'Ton direkt testen (1 Sekunde)' : 'Test sound directly (1 second)'}</button>
       <p className="mt-2" role="status">{directStatus}</p>
-      <audio ref={directAudioRef} src="/scary-audio.wav" preload="auto" onError={() => setDirectStatus(`Direct audio: media error ${directAudioRef.current?.error?.code ?? 'unknown'}`)} />
     </section>}
+    <audio ref={directAudioRef} src="/scary-audio.wav" preload="auto" onError={() => setDirectStatus(`Direct audio: media error ${directAudioRef.current?.error?.code ?? 'unknown'}`)} />
     <dialog ref={dialogRef} onCancel={close} aria-label="Video" className="fixed inset-0 m-auto h-[100dvh] max-h-none w-screen max-w-none border-0 bg-black p-0 text-white backdrop:bg-black">
       <div className="flex h-full w-full items-center justify-center">
         <canvas ref={canvasRef} width={512} height={910} aria-label={language === 'de' ? 'Überraschungsvideo' : 'Surprise video'} style={{height: '100%', width: 'auto', maxWidth: '100%', objectFit: 'contain'}} />
