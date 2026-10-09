@@ -1,4 +1,7 @@
 const KEY = 'justonedraw-surprise-v1';
+// Explicit owner test link: fresh counter per page load, no changes to real records.
+const TEST_MODE = typeof window !== 'undefined' &&
+  new URLSearchParams(window.location?.search ?? '').get('video-test') === '1';
 interface SurpriseState {attempts: number; shown: boolean}
 let memoryState: SurpriseState = {attempts: 0, shown: false};
 export function advanceSurprise(state: SurpriseState): {state: SurpriseState; show: boolean} {
@@ -9,6 +12,7 @@ export function advanceSurprise(state: SurpriseState): {state: SurpriseState; sh
 }
 /** Separate from historical highscores: count completed strokes from this feature's launch. */
 function loadState(): SurpriseState {
+  if (TEST_MODE) return memoryState;
   let state = memoryState;
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null');
@@ -18,6 +22,7 @@ function loadState(): SurpriseState {
 }
 function saveState(state: SurpriseState) {
   memoryState = state;
+  if (TEST_MODE) return;
   try {localStorage.setItem(KEY, JSON.stringify(state));} catch { /* In-memory fallback. */ }
 }
 export function recordSurpriseAttempt(): boolean {

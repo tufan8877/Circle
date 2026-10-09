@@ -31,4 +31,19 @@ describe('one-time fifth-attempt video', () => {
     vi.stubGlobal('localStorage', {getItem: () => JSON.stringify({attempts: 5, shown: false}), setItem: () => {}});
     expect(recordSurpriseAttempt()).toBe(true);
   });
+  it('allows an explicit fresh test without reading or changing the real consumed marker', async () => {
+    vi.resetModules();
+    const storage = {getItem: vi.fn(() => JSON.stringify({attempts: 5, shown: true})), setItem: vi.fn()};
+    vi.stubGlobal('localStorage', storage);
+    vi.stubGlobal('window', {location: {search: '?video-test=1'}});
+    const testRun = await import('./surprise');
+    for (let i = 1; i <= 5; i++) expect(testRun.recordSurpriseAttempt()).toBe(i === 5);
+    testRun.markSurpriseShown();
+    expect(testRun.recordSurpriseAttempt()).toBe(false);
+    expect(storage.getItem).not.toHaveBeenCalled();
+    expect(storage.setItem).not.toHaveBeenCalled();
+    vi.resetModules();
+    const freshRun = await import('./surprise');
+    expect(freshRun.recordSurpriseAttempt()).toBe(false);
+  });
 });
