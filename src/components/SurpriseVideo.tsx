@@ -1,6 +1,7 @@
 import {forwardRef, useEffect, useImperativeHandle, useRef} from 'react';
 import {useLanguage} from '@/lib/i18n';
 import {SurpriseAudio} from '@/lib/surpriseAudio';
+import {markSurpriseShown} from '@/lib/surprise';
 
 export interface SurpriseVideoHandle {play: () => void; unlockAudio: () => void}
 const SurpriseVideo = forwardRef<SurpriseVideoHandle>(function SurpriseVideo(_, ref) {
@@ -56,6 +57,7 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle>(function SurpriseVideo(_, 
     <dialog ref={dialogRef} onCancel={close} aria-label="Video" className="fixed inset-0 m-auto h-[100dvh] max-h-none w-screen max-w-none border-0 bg-black p-0 text-white backdrop:bg-black">
       <video ref={videoRef} src="/scary.mp4" playsInline preload="auto" muted
         onPlaying={() => {
+          markSurpriseShown();
           clearTimeout(timeoutRef.current);
           timeoutRef.current = setTimeout(close, 4000);
           if (separateAudio.current && !audioStarted.current) {
