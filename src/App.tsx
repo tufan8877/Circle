@@ -168,7 +168,7 @@ function Game() {
                   if (!preparation) {setStarting(false); setStartError(true); return;}
                   void preparation.then(() => {setStarted(true); setStarting(false);}).catch(() => {setStartError(true); setStarting(false);});
                 }}>
-                  {starting ? (language === 'de' ? 'Wird gestartet…' : 'Starting…') : (language === 'de' ? 'Spielen mit Ton' : 'Play with sound')}
+                  {starting ? (language === 'de' ? 'Wird gestartet…' : 'Starting…') : (language === 'de' ? 'Spielen' : 'Play')}
                 </button>
                 {startError && <p role="alert" className="max-w-xs text-sm text-white/75">{language === 'de' ? 'Der Ton konnte nicht aktiviert werden. Bitte erneut versuchen.' : 'Sound could not be enabled. Please try again.'}</p>}
               </div>
