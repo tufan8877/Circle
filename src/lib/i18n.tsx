@@ -71,11 +71,8 @@ export function LanguageProvider({children}: {children: ReactNode}) {
   };
   useEffect(() => {
     document.documentElement.lang = language;
-    document.title = language === 'de' ? 'JustOneDraw — Teste deine Zeichenpräzision' : 'JustOneDraw — Test your drawing precision';
-    const description = translate('Draw a circle. Test your precision. Beat your record.', language);
-    document.querySelector('meta[name="description"]')?.setAttribute('content', description);
-    document.querySelector('meta[property="og:description"]')?.setAttribute('content', description);
-    document.querySelector('meta[property="og:title"]')?.setAttribute('content', document.title);
+    // English search/social metadata is served directly in index.html.
+    // UI language changes must not replace the site's share metadata.
   }, [language]);
   return <LanguageContext.Provider value={{language, setLanguage}}>{children}</LanguageContext.Provider>;
 }

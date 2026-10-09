@@ -10,7 +10,8 @@ export async function shareResult(score: number, language: Language = 'en'): Pro
   message: string;
 }> {
   const text = shareText(score, language);
-  const url = typeof window !== "undefined" ? window.location.href : "";
+  // Share the public game, without owner repair/test flags or tracking parameters.
+  const url = typeof window !== "undefined" ? `${window.location.origin}${window.location.pathname}` : "";
   const shareData = { title: "JustOneDraw", text, url };
 
   // Try Web Share API.
