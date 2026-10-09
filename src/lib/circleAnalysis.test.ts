@@ -378,3 +378,55 @@ describe('circle validation regressions', () => {
     }
   });
 });
+
+describe('fairness stress regressions', () => {
+  function loop(amplitude: number, frequency = 3, phase = 0, noise = 0): Point[] {
+    const points = Array.from({length: 240}, (_, i) => {
+      const a = i / 240 * Math.PI * 2;
+      const r = 150 * (1 + amplitude * Math.sin(frequency * a + phase));
+      return {x: r * Math.cos(a) + noise * Math.sin(i * 3.1), y: r * Math.sin(a) + noise * Math.cos(i * 2.7)};
+    });
+    return [...points, points[0]];
+  }
+  function shifted(points: Point[], offset: number): Point[] {
+    const ring = points.slice(0, -1);
+    const rotated = [...ring.slice(offset), ...ring.slice(0, offset)];
+    return [...rotated, rotated[0]];
+  }
+  it('scores the same closed stroke equally regardless of start and direction', () => {
+    for (const amplitude of [0, .025, .05, .075, .1, .15]) {
+      const points = loop(amplitude);
+      const original = analyseCircle(points);
+      for (const start of [5, 17, 51, 103]) {
+        const moved = shifted(points, start);
+        expect(analyseCircle(moved)).toMatchObject({valid: original.valid, score: original.score});
+        expect(analyseCircle([...moved].reverse())).toMatchObject({valid: original.valid, score: original.score});
+      }
+    }
+  });
+  it('rejects all 120 stressed polygon variants', () => {
+    for (let sides = 3; sides <= 8; sides++) {
+      const vertices = Array.from({length: sides}, (_, i) => ({x: 150 * Math.cos(i / sides * Math.PI * 2), y: 150 * Math.sin(i / sides * Math.PI * 2)}));
+      for (const noise of [0, 1, 2, 3, 5]) for (const phase of [0, .3, 1, 2]) {
+        const points = makePolygon(vertices).map((p, i) => ({x: p.x + noise * Math.sin(i * 3.1 + phase), y: p.y + noise * Math.cos(i * 2.7 + phase)}));
+        const result = analyseCircle(points);
+        expect(result.valid, `sides=${sides}, noise=${noise}, phase=${phase}`).toBe(false);
+      }
+    }
+  });
+  it('accepts 240 round strokes with moderate wobble and tremor', () => {
+    for (const amplitude of [0, .025, .05, .075, .1]) for (const frequency of [1, 2, 3, 4]) for (const phase of [0, .3, 1, 2]) for (const noise of [0, 2, 5]) {
+      expect(analyseCircle(loop(amplitude, frequency, phase, noise)).valid, `wobble=${amplitude}, frequency=${frequency}, noise=${noise}`).toBe(true);
+    }
+  });
+  it('keeps size and rotation score differences within 0.1 percentage point', () => {
+    for (const amplitude of [0, .025, .05, .075, .1, .15]) {
+      const points = loop(amplitude), base = analyseCircle(points);
+      for (const scale of [.3, .5, 1, 2, 4]) for (const angle of [0, .37, 1.1, 2.3]) {
+        const changed = analyseCircle(points.map(p => ({x: 1234 + scale * (p.x * Math.cos(angle) - p.y * Math.sin(angle)), y: -678 + scale * (p.x * Math.sin(angle) + p.y * Math.cos(angle))})));
+        expect(changed.valid).toBe(base.valid);
+        expect(Math.abs(changed.score - base.score)).toBeLessThanOrEqual(.100000001);
+      }
+    }
+  });
+});

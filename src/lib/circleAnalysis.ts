@@ -370,26 +370,82 @@ function scoreSmoothness(points: Point[], fit: CircleFit): number {
 }
 
 /**
- * Scale-relative Ramer–Douglas–Peucker simplification detects long sides
- * even when hand tremor adds little zigzags. Split the closed stroke at
- * its farthest point so the starting position does not hide a corner.
- * A circle needs about 16 vertices at this tolerance; pronounced shapes
- * approximated by at most eight sides are rejected. This is a gameplay
- * threshold, not a universal mathematical classification of all shapes.
+ * Canonical ordering of a closed polyline makes arc-length sampling
+ * independent of the supplied starting vertex and drawing direction.
+ * Open strokes retain their endpoints for closure validation.
+ */
+function canonicalStroke(points: Point[]): Point[] {
+  const first = points[0], last = points[points.length - 1];
+  if (Math.hypot(first.x - last.x, first.y - last.y) > 1e-7) return points;
+  let ring = points.slice(0, -1);
+  if (polygonArea(ring) < 0) ring = ring.reverse();
+  let start = 0;
+  for (let i = 1; i < ring.length; i++) {
+    if (ring[i].x < ring[start].x || (ring[i].x === ring[start].x && ring[i].y < ring[start].y)) start = i;
+  }
+  ring = [...ring.slice(start), ...ring.slice(0, start)];
+  return [...ring, ring[0]];
+}
+
+/**
+ * Classification uses the convex envelope to tolerate hand tremor.
+ * Scoring still uses the original, unsmoothed arc-length samples.
+ * Simplify both halves, then remove redundant vertices across the seams:
+ * a stroke starting halfway along a side must not add a polygon corner.
+ * Eight or fewer substantial sides count as an angular shape. This is
+ * an explicit gameplay threshold, not a universal shape recognizer.
  */
 function isAngularShape(points: Point[], radius: number): boolean {
-  const tolerance = radius * 0.035;
-  const first = points[0];
-  let split = 1;
-  let farthest = 0;
-  for (let i = 1; i < points.length; i++) {
-    const distance = Math.hypot(points[i].x - first.x, points[i].y - first.y);
+  // The convex envelope removes small inward/outward tremor along sides.
+  // It is used only for classification, never to improve a player's score.
+  const smooth = convexHull(points);
+  if (smooth.length < 3) return true;
+  const first = smooth[0];
+  let split = 1, farthest = 0;
+  for (let i = 1; i < smooth.length; i++) {
+    const distance = Math.hypot(smooth[i].x - first.x, smooth[i].y - first.y);
     if (distance > farthest) {farthest = distance; split = i;}
   }
-  const closed = [...points, first];
-  const vertices = simplifyStroke(closed.slice(0, split + 1), tolerance).length
-    + simplifyStroke(closed.slice(split), tolerance).length - 2;
-  return vertices <= 8;
+  const tolerance = radius * 0.06;
+  const closed = [...smooth, first];
+  const vertices = [
+    ...simplifyStroke(closed.slice(0, split + 1), tolerance).slice(0, -1),
+    ...simplifyStroke(closed.slice(split), tolerance).slice(0, -1),
+  ];
+  let changed = true;
+  while (changed && vertices.length > 3) {
+    changed = false;
+    for (let i = 0; i < vertices.length; i++) {
+      const a = vertices[(i - 1 + vertices.length) % vertices.length];
+      const b = vertices[(i + 1) % vertices.length];
+      if (pointSegmentDistance(vertices[i], a, b) <= tolerance) {
+        vertices.splice(i, 1); changed = true; break;
+      }
+    }
+  }
+  return vertices.length <= 8;
+}
+
+function convexHull(points: Point[]): Point[] {
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+  const cross = (a: Point, b: Point, c: Point) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  const lower: Point[] = [], upper: Point[] = [];
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  for (const p of [...sorted].reverse()) {
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  return [...lower.slice(0, -1), ...upper.slice(0, -1)];
+}
+
+function pointSegmentDistance(p: Point, a: Point, b: Point): number {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const lengthSquared = dx * dx + dy * dy;
+  const t = lengthSquared ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared)) : 0;
+  return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
 }
 
 function simplifyStroke(points: Point[], tolerance: number): Point[] {
@@ -448,7 +504,7 @@ export function analyseCircle(rawPoints: Point[]): AnalysisResult {
   }
 
   // ── Resample ──
-  const pts = resamplePoints(rawPoints, RESAMPLE_COUNT);
+  const pts = resamplePoints(canonicalStroke(rawPoints), RESAMPLE_COUNT);
 
   // ── Fit circle ──
   const fit = fitCircle(pts);

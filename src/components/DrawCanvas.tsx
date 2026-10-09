@@ -81,7 +81,7 @@ export default function DrawCanvas({
   }, []);
 
   // ── Pointer handlers ───────────────────────────────────────────
-  const getPos = (e: React.PointerEvent): Point => {
+  const getPos = (e: {clientX: number; clientY: number}): Point => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
     return {
@@ -118,17 +118,26 @@ export default function DrawCanvas({
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!drawingRef.current) return;
     e.preventDefault();
-    const pt = getPos(e);
-    pointsRef.current.push(pt);
-
+    // Browsers may bundle several hardware samples into one pointer event.
+    // Preserve all available samples instead of scoring only the last one.
+    const samples = e.nativeEvent.getCoalescedEvents?.() ?? [];
     const ctx = canvasRef.current!.getContext("2d")!;
-    ctx.lineTo(pt.x, pt.y);
+    for (const sample of samples.length ? samples : [e]) {
+      const pt = getPos(sample);
+      pointsRef.current.push(pt);
+      ctx.lineTo(pt.x, pt.y);
+    }
     ctx.stroke();
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
     if (!drawingRef.current) return;
     e.preventDefault();
+    if (e.type === "pointerup") {
+      const end = getPos(e);
+      const last = pointsRef.current[pointsRef.current.length - 1];
+      if (!last || end.x !== last.x || end.y !== last.y) pointsRef.current.push(end);
+    }
     drawingRef.current = false;
     setIsDrawing(false);
 
