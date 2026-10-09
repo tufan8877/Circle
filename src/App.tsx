@@ -1,3 +1,5 @@
+import SurpriseVideo from '@/components/SurpriseVideo';
+import { recordSurpriseAttempt } from '@/lib/surprise';
 import { LanguageProvider, useLanguage } from '@/lib/i18n';
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Pencil } from "lucide-react";
@@ -21,6 +23,7 @@ export default function App() {
 function Game() {
   const {language, setLanguage, t} = useLanguage();
   const imprintRef = useRef<HTMLDialogElement>(null);
+  const [showSurprise, setShowSurprise] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [resetSignal, setResetSignal] = useState(0);
   const [result, setResult] = useState<{
@@ -36,6 +39,7 @@ function Game() {
 
   const handleDrawComplete = useCallback((points: Point[]) => {
     setPhase("analyzing");
+    if (recordSurpriseAttempt()) setShowSurprise(true);
 
     // Small delay for the "analyzing" feel.
     setTimeout(() => {
@@ -170,6 +174,8 @@ function Game() {
 
 
         </div>
+
+        <SurpriseVideo open={showSurprise} onClose={() => setShowSurprise(false)} />
 
         {/* Footer */}
         <footer
