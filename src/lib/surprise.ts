@@ -2,9 +2,9 @@ const KEY = 'justonedraw-surprise-v1';
 // Explicit owner test link: fresh counter per page load, no changes to real records.
 const TEST_MODE = typeof window !== 'undefined' &&
   new URLSearchParams(window.location?.search ?? '').get('video-test') === '1';
-const REPAIR_MODE = typeof window !== 'undefined' &&
-  new URLSearchParams(window.location?.search ?? '').get('video-repair') === '1';
-interface SurpriseState {attempts: number; shown: boolean; repaired?: boolean}
+const REPAIR_VERSION = typeof window !== 'undefined'
+  ? new URLSearchParams(window.location?.search ?? '').get('video-repair') : null;
+interface SurpriseState {attempts: number; shown: boolean; repaired?: boolean; repairVersion?: string}
 let memoryState: SurpriseState = {attempts: 0, shown: false};
 export function advanceSurprise(state: SurpriseState): {state: SurpriseState; show: boolean} {
   if (state.shown) return {state, show: false};
@@ -22,8 +22,10 @@ function loadState(): SurpriseState {
   } catch { /* In-memory fallback if storage is unavailable. */ }
   // Opt-in recovery for the owner's old failed/consumed record. Apply only once,
   // persist through the fifth showing and never reset other visitors.
-  if (REPAIR_MODE && !state.repaired) {
-    state = {attempts: 0, shown: false, repaired: true};
+  const needsRepair = REPAIR_VERSION === '1' ? !state.repaired
+    : REPAIR_VERSION === '2' && state.repairVersion !== '2';
+  if (needsRepair) {
+    state = {attempts: 0, shown: false, repaired: true, repairVersion: REPAIR_VERSION!};
     saveState(state);
   }
   return state;

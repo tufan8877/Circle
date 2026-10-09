@@ -2,6 +2,22 @@ import {describe, it, expect, vi, afterEach} from 'vitest';
 import {advanceSurprise, recordSurpriseAttempt, markSurpriseShown} from './surprise';
 afterEach(() => vi.unstubAllGlobals());
 describe('one-time fifth-attempt video', () => {
+  it('repairs a previously consumed repair once, preserving normal one-time behavior', async () => {
+    let saved = JSON.stringify({attempts: 5, shown: true, repaired: true});
+    vi.stubGlobal('localStorage', {getItem: () => saved, setItem: (_key: string, value: string) => {saved = value;}});
+    vi.stubGlobal('window', {location: {search: '?video-repair=2'}});
+    vi.resetModules();
+    let run = await import('./surprise');
+    for (let i = 1; i <= 5; i++) expect(run.recordSurpriseAttempt()).toBe(i === 5);
+    run.markSurpriseShown();
+    vi.resetModules();
+    run = await import('./surprise');
+    expect(run.recordSurpriseAttempt()).toBe(false);
+    vi.stubGlobal('window', {location: {search: ''}});
+    vi.resetModules();
+    run = await import('./surprise');
+    expect(run.recordSurpriseAttempt()).toBe(false);
+  });
   it('shows only on attempt five and never on later attempts', () => {
     let state = {attempts: 0, shown: false};
     for (let i = 1; i <= 30; i++) {
