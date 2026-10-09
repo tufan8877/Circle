@@ -46,4 +46,21 @@ describe('one-time fifth-attempt video', () => {
     const freshRun = await import('./surprise');
     expect(freshRun.recordSurpriseAttempt()).toBe(false);
   });
+  it('repairs an old failed record once and stays consumed across reloads of the repair link', async () => {
+    let saved = JSON.stringify({attempts: 5, shown: true});
+    vi.stubGlobal('localStorage', {getItem: () => saved, setItem: (_key: string, value: string) => {saved = value;}});
+    vi.stubGlobal('window', {location: {search: '?video-repair=1'}});
+    vi.resetModules();
+    let repaired = await import('./surprise');
+    for (let i = 1; i <= 3; i++) expect(repaired.recordSurpriseAttempt()).toBe(false);
+    vi.resetModules();
+    repaired = await import('./surprise');
+    expect(repaired.recordSurpriseAttempt()).toBe(false);
+    expect(repaired.recordSurpriseAttempt()).toBe(true);
+    repaired.markSurpriseShown();
+    vi.resetModules();
+    repaired = await import('./surprise');
+    expect(repaired.recordSurpriseAttempt()).toBe(false);
+    expect(JSON.parse(saved).repaired).toBe(true);
+  });
 });
