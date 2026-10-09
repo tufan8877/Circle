@@ -3,7 +3,10 @@ import {useLanguage} from '@/lib/i18n';
 import {SurpriseAudio} from '@/lib/surpriseAudio';
 import {markSurpriseShown} from '@/lib/surprise';
 
-export interface SurpriseVideoHandle {play: () => void; unlockAudio: () => void}
+export interface SurpriseVideoHandle {play: () => void; unlockAudio: () => void; prepareAudio: () => Promise<void>}
+// The same media element/file is first played in a normal click. Five seconds
+// of actual PCM silence give time to pause it without revealing the surprise.
+const AUDIO_OFFSET = 5;
 const SurpriseVideo = forwardRef<SurpriseVideoHandle, {testAttempts: number}>(function SurpriseVideo({testAttempts}, ref) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -67,6 +70,20 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle, {testAttempts: number}>(fu
   };
   useImperativeHandle(ref, () => ({
     unlockAudio: () => audioRef.current.unlock(),
+    prepareAudio: () => {
+      const audio = directAudioRef.current;
+      if (!audio) return Promise.reject(new Error('Audio unavailable'));
+      audioRef.current.unlock();
+      audio.currentTime = 0;
+      audio.muted = false;
+      audio.volume = 1;
+      // No await before play: this runs directly inside the start button click.
+      return audio.play().then(() => {
+        audio.pause();
+        audio.currentTime = AUDIO_OFFSET;
+        if (testMode) setAudioStatus('Native audio: prepared by click');
+      });
+    },
     play: () => {
       if (pendingRef.current || dialogRef.current?.open) return;
       pendingRef.current = true;
@@ -74,7 +91,7 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle, {testAttempts: number}>(fu
       // play synchronously while the drawing's release gesture is still active.
       const audio = directAudioRef.current;
       if (audio) {
-        audio.currentTime = 0;
+        audio.currentTime = AUDIO_OFFSET;
         audio.muted = false;
         audio.volume = 1;
         void audio.play().then(() => {
@@ -124,12 +141,12 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle, {testAttempts: number}>(fu
   return (
     <>
     {testMode && <section className="mb-4 w-full max-w-2xl rounded-xl border border-cyan-400/30 bg-cyan-400/5 p-4 text-sm text-white" aria-label="Audio diagnostics">
-      <p className="font-semibold">{language === 'de' ? 'Videotest v4' : 'Video test v4'} · {Math.min(testAttempts, 5)}/5</p>
+      <p className="font-semibold">{language === 'de' ? 'Videotest v5' : 'Video test v5'} · {Math.min(testAttempts, 5)}/5</p>
       <p className="mt-2" role="status">{audioStatus || (language === 'de' ? 'Automatischer Ton: noch nicht ausgelöst.' : 'Automatic audio: not triggered yet.')}</p>
       <button type="button" className="mt-3 rounded-lg bg-cyan-400 px-4 py-2 font-semibold text-black" onClick={() => {
         const audio = directAudioRef.current;
         if (!audio) return;
-        audio.currentTime = 0;
+        audio.currentTime = AUDIO_OFFSET;
         audio.muted = false;
         audio.volume = 1;
         setDirectStatus('Direct audio: starting');
@@ -138,7 +155,7 @@ const SurpriseVideo = forwardRef<SurpriseVideoHandle, {testAttempts: number}>(fu
       }}>{language === 'de' ? 'Ton direkt testen (1 Sekunde)' : 'Test sound directly (1 second)'}</button>
       <p className="mt-2" role="status">{directStatus}</p>
     </section>}
-    <audio ref={directAudioRef} src="/scary-audio.wav" preload="auto" onError={() => setDirectStatus(`Direct audio: media error ${directAudioRef.current?.error?.code ?? 'unknown'}`)} />
+    <audio ref={directAudioRef} src="/scary-playback.wav" preload="auto" onError={() => setDirectStatus(`Direct audio: media error ${directAudioRef.current?.error?.code ?? 'unknown'}`)} />
     <dialog ref={dialogRef} onCancel={close} aria-label="Video" className="fixed inset-0 m-auto h-[100dvh] max-h-none w-screen max-w-none border-0 bg-black p-0 text-white backdrop:bg-black">
       <div className="flex h-full w-full items-center justify-center">
         <canvas ref={canvasRef} width={512} height={910} aria-label={language === 'de' ? 'Überraschungsvideo' : 'Surprise video'} style={{height: '100%', width: 'auto', maxWidth: '100%', objectFit: 'contain'}} />

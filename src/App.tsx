@@ -27,6 +27,9 @@ function Game() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [resetSignal, setResetSignal] = useState(0);
   const [testAttempts, setTestAttempts] = useState(0);
+  const [started, setStarted] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState(false);
   const [result, setResult] = useState<{
     score: number;
     isNewBest: boolean;
@@ -154,6 +157,22 @@ function Game() {
               resetSignal={resetSignal}
               lineColor={lineColor}
             />
+
+            {!started && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 rounded-3xl bg-[#0B0F19]/95 p-6 text-center">
+                <button type="button" disabled={starting} className="rounded-2xl bg-cyan-400 px-7 py-4 text-lg font-semibold text-black disabled:opacity-60" onClick={() => {
+                  if (starting) return;
+                  setStarting(true);
+                  setStartError(false);
+                  const preparation = surpriseRef.current?.prepareAudio();
+                  if (!preparation) {setStarting(false); setStartError(true); return;}
+                  void preparation.then(() => {setStarted(true); setStarting(false);}).catch(() => {setStartError(true); setStarting(false);});
+                }}>
+                  {starting ? (language === 'de' ? 'Wird gestartet…' : 'Starting…') : (language === 'de' ? 'Spielen mit Ton' : 'Play with sound')}
+                </button>
+                {startError && <p role="alert" className="max-w-xs text-sm text-white/75">{language === 'de' ? 'Der Ton konnte nicht aktiviert werden. Bitte erneut versuchen.' : 'Sound could not be enabled. Please try again.'}</p>}
+              </div>
+            )}
 
             {phase === "result" && result && (
               <div className="absolute inset-0 z-10 flex items-center justify-center p-3 pointer-events-none" role="status" aria-live="polite">
